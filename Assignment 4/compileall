@@ -1,0 +1,8 @@
+#!/bin/bash
+echo Building OTP...
+gcc -o otp_enc_d src/otp_enc_d.c
+gcc -o otp_dec_d src/otp_dec_d.c
+gcc -o otp_enc src/otp_enc.c
+gcc -o otp_dec src/otp_dec.c
+gcc -o keygen src/keygen.c
+echo Complete!

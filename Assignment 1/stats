@@ -1,0 +1,167 @@
+#!/bin/sh
+# Brandon Lee
+# Assignment 1 - stats
+
+# For easy argument calculations
+numOfArgs="$#"
+args=("$@")
+
+# For easy input file manipulation
+inputFile=${args[1]}
+
+# Temporary files
+stdinTempFile=$(mktemp)
+tempFile=$(mktemp)
+
+# Global parameters
+average=0
+median=0
+
+# Function: exitError() - Prints usage and returns 1
+function exitError {
+    echo "Usage: stats {-rows|-cols} [file]"
+    exit 1
+}
+
+# Function: main() - Calls start() and returns 0 if no errors
+function main {
+    start
+    exit 0
+}
+
+# Function: start() - Handle error checking, file reading, and argument interpretation
+function start {
+
+    # Check number of arguments
+    if [[ $numOfArgs -lt 1 || $numOfArgs -gt 2 ]]; then
+        echo "Incorrect number of arguments."
+        exitError
+    fi
+
+    # Check if there's the correct number of arguments for file reading
+    if [[ $numOfArgs -eq 2 ]]; then
+
+        # Check for file readability
+        if test -r $inputFile
+        then
+            continue
+        else
+            echo "File is not readable."
+            exitError
+        fi
+
+    # Since there's stdin input, read each line and append to temp file
+    else
+        while read line
+        do
+            echo "$line" >> $stdinTempFile
+        done < "${2:-/dev/stdin}"
+
+        # Put read data into input file
+        inputFile=$stdinTempFile
+    fi
+
+    # Check if rows or columns
+    if [[ ${args[0]} =~ "-r" || ${args[0]} =~ "-c" ]]; then
+        if [[ ${args[0]} =~ "-r" ]]; then
+            calculateRows
+        fi
+        if [[ ${args[0]} =~ "-c" ]]; then
+            calculateColumns
+        fi
+    else
+        echo "Please select rows or columns."
+        exitError
+    fi
+
+}
+
+# Function: calculateRows() - Calculate average and median of rows
+function calculateRows {
+    echo "Average Median"
+
+    while read line
+    do
+        # Count the number of words per row
+        rowSize=($(echo $line | wc -w))
+
+        # Move each element in row to its own line for easy calculation
+        rowToColumn=$(echo $line | tr "\t" "\n")
+
+        # Calculate the sum of all the digits in the row
+        rowSum=0
+        for i in $rowToColumn
+        do
+            rowSum=$(expr $i + $rowSum)
+        done
+
+        # Get and print average and median
+        calculateAverage $rowSize $rowSum
+        calculateMedian "$rowToColumn" $rowSize
+        echo "$average $median"
+    done <$inputFile
+}
+
+# Function: calculateColumns() - Calculate average and median of columns
+function calculateColumns {
+    echo "Average Median"
+
+    # Get column size
+    columnSize=$(cut -c 1 $inputFile | wc -w)
+
+    # Get the first line and number of columns
+    firstLine=$(head -n 1 $inputFile)
+    numberOfColumns=($(echo $firstLine | wc -w))
+
+    # For every column in the file...
+    for i in $(seq 1 $numberOfColumns)
+    do
+        # Divide each column seperately into its own for calculation
+        toColumn=$(cut -f $i $inputFile | tr "\t" "\n")
+
+        # Calculate the sum of each column
+        columnSum=0
+        for j in $toColumn
+        do
+            columnSum=$(expr $j + $columnSum)
+        done
+
+        # Get and print average and median
+        calculateAverage $columnSize $columnSum
+        calculateMedian "$toColumn" $columnSize
+        echo "$average $median"
+    done
+}
+
+# Function: calculateAverage() - Calculates the average of a line given its size and sum
+function calculateAverage {
+    size=$1
+    sum=$2
+
+    # Rounding Integer Division: (Sum + (Size/2))
+    average=$(expr $sum + $(expr $size / 2))
+
+    # Make sure no division by zero
+    if [[ $size == 0 ]]; then
+        average=""
+    else
+        average=$(expr $average / $size)
+    fi
+}
+
+# Function: calculateMedian() - Calculates median given the line values and size
+function calculateMedian {
+    values=$1
+    size=$2
+
+    # Sort values and place into temp file
+    echo $values | tr " " "\n" | sort -g > $tempFile
+
+    # Get position by fetching the middle postion of sorted values
+    medianPosition=$(expr $size / 2 + 1)
+
+    # Get the value in the specific position
+    median=$(awk 'NR=='$medianPosition'' $tempFile)
+}
+
+main
